@@ -98,7 +98,8 @@ def main():
   )
 
   parser.add_argument(
-    '--fec', action='store_true', default=True,
+    # TODO: Enable by default when this crash is fixed: https://github.com/Haivision/srt/issues/1594
+    '--fec', action='store_true', default=False,
     help='Forward Error Correction costs more bandwidth but helps with packet loss. Both sides must use the same value.',
   )
 
