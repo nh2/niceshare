@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
+
 import argparse
-import gooey
 import itertools
 import shlex
 import subprocess
@@ -8,8 +8,6 @@ import re
 import socket
 import sys
 import wx
-
-from gooey import Gooey
 
 
 def list_screen_sizes():
@@ -47,11 +45,18 @@ def parse_screenshare_argument(screenshare_arg):
   )
 
 
-@Gooey(
-  program_name="NiceShare GUI",
-)
-def main():
-  parser = gooey.GooeyParser(description='GUI for gstreamer-based screen sharing.')
+def main(use_gooey=False):
+  desc = 'GUI for gstreamer-based screen sharing.'
+
+  if use_gooey:
+    import gooey
+    parser = gooey.GooeyParser(description=desc)
+  else:
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument(
+      '--ignore-gooey', action='store_true',
+      help='Ingored; just for compatibility with Gooey when plain argparse is used.',
+    )
 
   connection_group = parser.add_mutually_exclusive_group(required=True)
   connection_group.add_argument(
@@ -80,16 +85,19 @@ def main():
     dest='screenshare', action='store_const', const=all_screens_size,
     help=all_screens_size,
   )
+
   mode_group.add_argument(
     '--screenshare-rectangle', metavar="Screenshare custom rectangle",
     dest='screenshare_rectangle',
-    gooey_options={
-      'validator': {
-        'test': f"__import__('re').match(r'{screenshare_argument_regex}', user_input)",  # gets eval()d
-        'message': 'Must be of format WIDTHxHEIGHT+OFFSET_X,OFFSET_Y',
-      },
-    },
     help='Format: WxH+OFFSET_X,OFFSET_Y. Example: 1920x1080+0,0',
+    **({} if not use_gooey else {
+      'gooey_options': {
+        'validator': {
+          'test': f"__import__('re').match(r'{screenshare_argument_regex}', user_input)",  # gets eval()d
+          'message': 'Must be of format WIDTHxHEIGHT+OFFSET_X,OFFSET_Y',
+        },
+      },
+    }),
   )
 
   parser.add_argument(
@@ -115,8 +123,10 @@ def main():
 
   parser.add_argument(
     '--passphrase', type=str,
-    widget='PasswordField',
     help='Encrypt traffic with this passphrase',
+    **({} if not use_gooey else {
+      'widget': 'PasswordField',
+    })
   )
 
   parser.add_argument(
@@ -187,11 +197,23 @@ def main():
     f'--run {quoted_in_nix_shell_command}',
   ])
 
-  print(f'\nYour invocation:\n\n{command}\n')
+  cli_flags = ' '.join(a for a in sys.argv if a not in ['--ignore-gooey', '--print-command'])
+  print(f'\nYour CLI flags:\n\n{cli_flags}\n')
+  print(f'\nYour gstreamer invocation:\n\n{command}\n')
 
   if not args.print_command:
     subprocess.run(command, shell=True)
 
 
+def gooey_main():
+  import gooey
+  gooey.Gooey(
+    program_name="NiceShare GUI",
+  )(main)(use_gooey=True)
+
+
 if __name__ == "__main__":
-  main()
+  if '--gui' in sys.argv:
+    gooey_main()
+  else:
+    main()
